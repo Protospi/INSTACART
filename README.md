@@ -14,3 +14,8 @@ Os principais objetivos, tendo em vista os interesses da empresa, são maximizar
 ## Relatório PDF
 
 *  https://github.com/Protospi/INSTACART/blob/main/tp1_relatorio_instacart.pdf
+
+## DashBoard Shiny
+
+* https://loes.shinyapps.io/dashboard/
+
