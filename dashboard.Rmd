@@ -1,0 +1,582 @@
+---
+title: "DashBoard"
+output: 
+  flexdashboard::flex_dashboard:
+    logo: www/instacart_logo_small_cut.png
+    css: www/style.css
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+
+```{r setup, include=FALSE}
+
+# Load packages
+library(flexdashboard)
+library(arules)
+library(arulesViz)
+library(tidyverse)
+library(gridExtra)
+library(DT)
+library(plotly)
+library(shiny)
+library(visNetwork)
+
+# Load Instacart data from csv files donwloaded from kaggle
+products = read_csv("instacart_data/products.csv")
+orders = read_csv("instacart_data/orders_sample.csv")
+order_products_train = read_csv("instacart_data/order_products__train.csv")
+
+```
+
+Produtos
+=======================================================================
+
+Row 
+-----------------------------------------------------------------------
+
+### Medidas de Dispersão e Centralidade de Ordens por Produtos
+
+```{r}
+
+# Retrieve just the order and product columns
+train = order_products_train %>% 
+          select(order_id, product_id) 
+
+# Count the number of orders grouped by product_id and arrange in decresing order
+products_n_orders <- train %>% 
+                      group_by(product_id) %>% 
+                      summarise(n_orders = n()) %>% 
+                      arrange(desc(n_orders)) 
+
+# Center and dispersion statistics from orders
+s1 <- summary(products_n_orders$n_orders)
+total_produtos <- sum(products_n_orders$n_orders)
+df1 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                        "3º Quartil","Máximo", "Desvio Padrão",
+                        "Total de Produtos"),
+               Valor = round(c(s1, sd(products_n_orders$n_orders),
+                               total_produtos),2))
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df1, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+### Tabela dos 1000 Produtos mais Vendidos
+
+```{r}
+
+# Define data frame for best products
+df_best_products <- products_n_orders %>% 
+                      left_join(products[, c(1,2)], by = c("product_id" = "product_id")) %>% 
+                      arrange(desc(n_orders)) %>% 
+                      select(product_name, n_orders) %>% 
+                      rename(`Nome do Produto` = product_name,
+                             `Vendas` = n_orders) %>% 
+                      slice(1:1000)
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df_best_products, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Histograma do Número de Vendas por Produto
+
+```{r}
+
+# Change data
+aux1 <- products_n_orders %>% mutate(`Log(Número de Vendas)` = round(log(n_orders), 2))
+
+# Define plot
+p1 <- ggplot(data = aux1,
+             mapping = aes(x = `Log(Número de Vendas)`))+
+          geom_histogram(bins = 21, color = "darkgreen", fill = "orange")+
+          scale_x_continuous(breaks=c(0, 2.5, 5, 7.5, 10),
+                             labels=c(0, 12, 148, 1808, 22026))+
+          labs(title = "",
+               x = "Número de Vendas",
+               y = "Frequência")
+
+# Interactive plotly
+ggplotly(p1, tooltip=c("Log(Número de Vendas)"))
+
+```       
+       
+### Boxplot do Número de Vendas por Produto
+
+```{r}
+
+#Change data
+aux2 <- products_n_orders %>% mutate(`Log(Número de Vendas)` = round(log(n_orders), 2))
+
+# Define boxplot
+p2 <- ggplot(data = aux2,
+             mapping = aes(y = `Log(Número de Vendas)`, x = factor(rep(0, nrow(aux2)))))+
+  geom_boxplot(color = "darkgreen", fill = "orange")+
+  scale_y_continuous(breaks=c(0, 2.5, 5, 7.5, 10),
+                             labels=c(0, 12, 148, 1808, 22026))+
+  labs(title = "",
+       x = "",
+       y = "Número de Vendas") +
+  coord_flip()
+  
+# Interactive plotly
+ggplotly(p2)
+
+```
+
+
+Ordens
+=======================================================================
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Medidas de Dispersão e Centralidade do Número de Produtos por Ordem
+
+```{r}
+
+# Count number of products grouped by order_id and arrange in decresing order
+orders_n_products <- train %>% 
+  group_by(order_id) %>% 
+  summarise(n_products = n())
+
+# Center and dispersion statistics from orders
+s2 <- summary(orders_n_products$n_products)
+total_ordens <- nrow(products_n_orders)
+df2 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                                "3º Quartil","Máximo", "Desvio Padrão", "Total de Ordens"),
+              Valor = round(c(s2, sd(orders_n_products$n_products), total_ordens),2))
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df2, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+### Tabela das 1000 Ordens com Mais Produtos
+
+```{r}
+
+# Define data frame for best products
+df_best_orders <- orders_n_products %>%
+                    arrange(desc(n_products)) %>% 
+                    rename(`Id da Ordem` =order_id, `Número de Produtos` =n_products) %>% 
+                    slice(1:1000)
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df_best_orders, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Histograma do Número Produtos por Ordem
+
+```{r}
+
+# Define aux3
+aux3 <- orders_n_products %>%  rename(`Número de Produtos` = n_products)
+
+# Plot number of products distribution histogram per ordem
+p3 <- ggplot(data = aux3,
+             mapping = aes(x = `Número de Produtos`))+
+  geom_histogram(bins = 40, color = "darkgreen", fill = "orange")+
+  labs(title = "",
+       x = "Número de Produtos",
+       y = "Frequência")
+
+# Interactive plotly
+ggplotly(p3, tooltip=c("Número de Produtos"))
+
+```       
+       
+### Boxplot do Número de Produtos por Ordem
+
+```{r}
+
+# Define boxplot
+p4 <- ggplot(data = aux3,
+             mapping = aes(y = `Número de Produtos`, x = factor(rep(0, nrow(aux3)))))+
+  geom_boxplot(color = "darkgreen", fill = "orange")+
+  labs(title = "",
+       x = "",
+       y = "Número de Produtos") +
+  coord_flip()
+  
+# Interactive plotly
+ggplotly(p4)
+
+```
+
+
+Clientes
+=======================================================================
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Medidas de Dispersão e Centralidade do Número de Ordens por Cliente
+
+```{r}
+
+# Gourp by users
+orders_users <- orders %>% 
+                  group_by(user_id) %>% 
+                  summarise(n_orders = n()) 
+
+# Center and dispersion statistics from orders
+s3 <- summary(orders_users$n_orders)
+df3 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                        "3º Quartil","Máximo", "Desvio Padrão"),
+               Valor = round(c(s3, sd(orders_users$n_orders)),2))
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df3, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+### Tabela dos 1000 Clientes com mais Ordens
+
+```{r}
+
+# Define aux4
+aux4 <- orders_users %>% 
+          arrange(desc(n_orders)) %>% 
+          rename(`ID do Cliente` = user_id, `Número de Ordens` = n_orders) %>% 
+          slice(1:1000)
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(aux4, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Histograma do Número Ordens por Cliente
+
+```{r}
+
+# Define aux3
+aux5 <- orders_users %>%  rename(`Número de Ordens` = n_orders)
+
+
+# PLot number of orders by user
+p5 <-  ggplot(data = aux5, aes(x = `Número de Ordens`))+
+  geom_histogram(bins = 40, color = "darkgreen", fill = "orange")+
+  labs(title = "",
+       x = "Número de Ordens",
+       y = "Frequência")
+
+# Interactive plotly
+ggplotly(p5, tooltip=c("Número de Ordens"))
+
+```       
+       
+### Boxplot do Número de Produtos por Ordem
+
+```{r}
+
+# Define boxplot
+p6 <- ggplot(data = aux5,
+             mapping = aes(y = `Número de Ordens`, x = factor(rep(0, nrow(aux5)))))+
+  geom_boxplot(color = "darkgreen", fill = "orange")+
+  labs(title = "",
+       x = "",
+       y = "Número de Ordens") +
+  coord_flip()
+  
+# Interactive plotly
+ggplotly(p6)
+
+```
+
+
+Dia e Hora
+=======================================================================
+
+
+Row 
+-----------------------------------------------------------------------
+
+### Medidas de Dispersão e Centralidade do Número de Ordens por Hora e Dia da Semana
+
+```{r}
+
+# Group orders by time and dow
+orders_times_dow <- orders %>% 
+                  group_by(order_dow, order_hour_of_day) %>% 
+                  summarise(n_orders = n()) %>% 
+                  mutate(order_dow = factor(order_dow, levels=0:6,
+                                            labels=c("Domingo", "Segunda", "Terça", "Quarta",
+                                                     "Quinta", "Sexta", "Sábado")))
+
+# Center and dispersion statistics from orders
+s6 <- summary(orders_times_dow$n_orders)
+df6 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                        "3º Quartil","Máximo", "Desvio Padrão"),
+               Valor = round(c(s3, sd(orders_times_dow$n_orders)),2))
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(df6, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+```
+
+
+### Padrão de Ordens por Hora e Dia da Semana
+
+```{r}
+
+# define aux8
+aux8 <- orders_times_dow %>% rename(`Hora do Dia` = order_hour_of_day, `Número de Ordens` = n_orders, `Dia da Semana` = order_dow)
+
+# Define boxplot
+p8 <- ggplot(data = aux8, aes(x = `Hora do Dia`, 
+                                y = `Número de Ordens`,
+                                group = `Dia da Semana`,
+                                color = `Dia da Semana`))+
+  geom_line(size = 1.05)+
+  labs(title = "",
+       x = "Hora do Dia",
+       y = "Número de Ordens",
+       color = "")+
+  theme(axis.text.x = element_text(angle = 45, vjust = 0.5, hjust=1))
+  
+# Interactive plotly
+ggplotly(p8)
+
+        
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Tabela de Número de Ordens por Hora e Dia da Semana
+
+```{r}
+
+# Print table
+renderDT({
+  
+  # Render data table
+  datatable(aux8, 
+          callback=JS('$("button.buttons-copy").css("background","#43b02a");
+                       $("button.buttons-csv").css("background","#43b02a");
+                       $("button.buttons-excel").css("background","#43b02a");
+                       $("button.buttons-pdf").css("background","#43b02a");
+                       $("button.buttons-print").css("background","#43b02a");
+                       return table;'),
+          rownames = FALSE, 
+          extensions = "Buttons",
+          options = list(
+            dom = 'Bt',
+            pageLength = nrow(aux8),
+            scrollY = T,
+            buttons = c('copy', 'csv', 'excel', 'pdf', 'print')))
+  
+}, server = FALSE)
+
+
+```
+
+
+Regras
+=======================================================================
+
+Column {data-width=800}
+-----------------------------------------------------------------------
+
+### Grafo de Regras
+
+```{r, message=FALSE, error=FALSE, warning=FALSE}
+
+# Define transactio  matrix
+order_trans <- read.transactions(
+  file = "instacart_data/train_factor.csv",
+  format = "single",
+  sep = ",",
+  header = TRUE,
+  cols=c("order_id","product_name"),
+  rm.duplicates = T
+)
+
+
+# Reactive button
+react_rules <- reactive({
+  
+  # Define rules
+  rules <- apriori(order_trans,
+                   parameter = list(sup = input$sup,
+                                    conf = input$conf,
+                                    target="rules",
+                                    minlen=1),
+                   control = list(verbose = FALSE))
+  
+  # Define reactive function return
+  return(rules)
+
+})
+
+# Render plot
+renderVisNetwork({
+  
+  # Draw plot
+  plot(react_rules(), method = "graph",  engine = "htmlwidget")
+  
+})
+
+
+
+
+```
+
+Column {data-width=200}
+-----------------------------------------------------------------------
+
+### Parâmetros
+
+```{r}
+
+# Define sliderInput of support
+sliderInput("sup", "Suporte:",
+            min = 0.00001,
+            max = 0.00004,
+            value = 0.00004,
+            step = 0.00001)
+
+
+# Define sliderInput of conffidence
+sliderInput("conf", "Confiança:",
+            min = 0,
+            max = 1,
+            value = 0.42,
+            step = 0.01)
+
+```
