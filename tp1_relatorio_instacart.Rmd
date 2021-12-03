@@ -30,7 +30,7 @@ author: |
   |  
   | Aluno: Pedro Lóes
   |  
-  | Data: 18-11-2021
+  | Data: 03-12-2021
 
 output: 
   pdf_document:
@@ -179,40 +179,20 @@ Para identificar dados faltantes foram produzidos gráficos e tabelas dos atribu
 
 ### Dados Faltantes
 
-```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
-
-# Define data frame
-df_1 <- tibble(Atributo = c("oder_id", "product_id", "add_to_cart_order", "reordered"),
-               `Número de Observações Faltantes` = rep(0, 4))
-
-# Draw table
-kable(df_1)
-
-```
-
-* Nenhum atributo apresentou dados faltantes.
-
-### Primeiras 10 Observações
-
-```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
-
-# Define data frame
-order_products_train = read_csv("instacart_data/order_products__train.csv") 
-
-# Draw table
-kable(order_products_train %>%  slice(1:10))
-
-```
+* Somente as informação sobre número de dias após a compra anterior estão faltando no banco de ordens. Estas informações não podem ser recuperadas porque não exitem pelo fato de clientes novos não possuirem compras anteriores.
 
 * Nenhum atributo apresentou observações com tipo de dado inconsistente com o esquema relacional.
 
 ## 2.4 Exploração dos Dados
 
-A exploração dos dados coinsistiu na produção e análise de gráficos, tabelas e testes para identificar padrões aparentes que colaborassem  na etapa de modelagem, determinar os dados relevantes para atender aos objetivos do negócio, identificar valores atípicos e sugerir possíveis técnicas de engenharia de variáveis para melhorar a capacidade preditiva dos modelos.
+A exploração dos dados coinsistiu na produção e análise de gráficos e tabelas para identificar padrões aparentes que colaborassem  na etapa de modelagem, determinar os dados relevantes para atender os objetivos do negócio, identificar valores atípicos e sugerir possíveis técnicas de engenharia de variáveis para melhorar a capacidade preditiva dos modelos.
 
 ### Número de Vendas por Produto
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+
+# Define data frame
+order_products_train = read_csv("instacart_data/order_products__train.csv")
 
 # Retrieve just the order and product columns
 train = order_products_train %>% 
@@ -228,20 +208,18 @@ products_n_orders <- train %>%
 s1 <- summary(products_n_orders$n_orders)
 df1 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
                         "3º Quartil","Máximo", "Desvio Padrão"),
-               Valor = c(s1, sd(products_n_orders$n_orders)))
+               Valor = round(c(s1, sd(products_n_orders$n_orders)),2))
 
 # Print table
 kable(df1)
 
 ```
 
-* 7.884 produtos só foram comprados 1 vez e apenas o produto Banana atingiu o número máximo de vendas com um total de 18.726 ordens. 
+* Dos 39.113 produtos oferecidos pela empresa, 7.884 produtos só foram comprados 1 vez e o produto mais vendido foi a Banana, podendo ser encontrado em um total de 18.726 ordens. 
 
-* A mediana de 5 vendas por produto destoa bastante da média de 35 vendas por produto. Tal fato indicou assimetria negativa com cauda à direita. Ou seja, a distribuição do número de venda por produto se concentrou em até 20 produtos, porém diversos produtos apresentaram valores atípicos com magnitude maior que 2 desvio padrão em relação à média. 
+* A mediana de 5 vendas destoa da média de 35 vendas, indicando assimetria positiva com cauda à direita. A distribuição do número de venda por produto se concentrou em até 18 produtos, porém diversos produtos apresentaram valores atípicos com magnitude maior que 2 desvios padrão em relação à média. 
 
-
-
-```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='85%', fig.align='center'}
 
 # Carrega bibliotecas
 library(gridExtra)
@@ -270,12 +248,12 @@ grid.arrange(p1, p2, nrow = 2)
 
 ```
 
-* O histograma do número de vendas por produto ilustrou as estatísticas de quartis, medidas de centralidade e dispersão do número de vendas dos 39.113 produtos. O histograma acrescenta a informação sobre o peso da cauda, sendo possível observar que apesar da maioria dos produtos apresentar entre 1 e 20 vendas, existem milhares de produtos que apresentaram mais que 20 vendas e centenas de produtos que apresentaram mais que 200 vendas.
+* A distribuição apresentou 2 modas e uma redução suave na quantidade de produtos com até 150 vendas. A escala do número de vendas foi alterada para ilustrar melhor a dispersão.
 
-* O boxplot acrescenta a informação de que apesar da mediana de 5 vendas por produto compensar os valores atípicos e estimar melhor a centralidade dos dados, foi possível observar que a caixa não parece apresentar estado de inércia ou equilibrado no valor 5. Também foi possível constatar que dezenas de produtos apresentaram mais do que 500 vendas. 
+* A mediana parece ser um estimador mais robusto de centralidade. Apesar da concentração dos produtos em poucas vendas, centenas de produtos venderam mais do que 500 unidades. 
  
 
-```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='85%', fig.align='center'}
 # Load data
 products = read_csv("instacart_data/products.csv")
 
@@ -314,7 +292,7 @@ orders_n_products <- train %>%
 s2 <- summary(orders_n_products$n_products)
 df2 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
                                 "3º Quartil","Máximo", "Desvio Padrão"),
-              Valor = c(s2, sd(orders_n_products$n_products)))
+              Valor = round(c(s2, sd(orders_n_products$n_products)),2))
 
 # Print table
 kable(df2)
@@ -328,7 +306,7 @@ kable(df2)
 * A mediana de 9 produtos apresentou valores semelhantes indicando que o espalhamento dos dados ao longo da amplitude é regular. Tal fato pode ser comprovado pela magnitude do desvio em relação à amplitude dos dados. Ou seja, apesar de existirem vendas com até 80 produtos, a maioria dos dados está concentrada em torno da média com poucos valores atípicos.
 
 
-```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='85%', fig.align='center'}
 
 # Plot number of products distribution histogram per ordem
 p3 <- ggplot(data = orders_n_products,
@@ -353,7 +331,130 @@ grid.arrange(p3, p4, nrow = 2)
 
 * O histograma do número de produtos por ordem indicou distribuição assimétrica à direita. Apesar de apresentar valores atípicos, a cauda à direita é leve com poucas vendas que contêm mais de 40 produtos. A diminuição do número de produtos por venda foi gradual, atingindo um número de vendas baixo depois de 40 produtos por venda.
 
-O boxplot indicou que a mediana estava centralizada entre o 1º e 3º quartis. Alguns valores atípicos podem ser observados acima de 27 produtos por venda (ordem). Apenas 6 vendas contiveram mais do que 70 produtos.
+* O boxplot indicou que a mediana estava centralizada entre o 1º e 3º quartis. Alguns valores atípicos podem ser observados acima de 27 produtos por venda (ordem). Apenas 6 vendas contiveram mais do que 70 produtos.
+
+### Número de Compras(Ordens) por Cliente
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+
+# Load data
+orders = read_csv("instacart_data/orders.csv")
+
+# Gourp by users
+orders_users <- orders %>% 
+                  group_by(user_id) %>% 
+                  summarise(n_orders = n()) 
+
+# Center and dispersion statistics from orders
+s3 <- summary(orders_users$n_orders)
+df3 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                        "3º Quartil","Máximo", "Desvio Padrão"),
+               Valor = round(c(s3, sd(orders_users$n_orders)),2))
+
+# Print table
+kable(df3)
+
+```
+
+* A carteira de clientes apresentou apresentou __206.199__ clientes ativos no mês. Os cliente com o menor número de compras (ordens), compraram 4 vezes e os clientes com maior número de compras compraram 100 vezes no período de 1 mês.
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='85%', fig.align='center'}
+
+# PLot number of orders by user
+p5 <-  ggplot(data = orders_users, aes(x = n_orders))+
+  geom_histogram(color = "darkgreen", fill = "orange")+
+  labs(title = "Histograma do Número de Compras(Ordens) por Cliente",
+       x = "Número de Compras",
+       y = "Frequência")
+
+# PLot number of orders by user
+p6 <- ggplot(data = orders_users, aes(x = n_orders))+
+  geom_boxplot(color = "darkgreen", fill = "orange")+
+  labs(title = "Boxplot do Número de Compras(Ordens) por Cliente",
+       x = "Número de Compras",
+       y = "")
+
+# Draw plots
+grid.arrange(p5, p6, nrow = 2)
+
+```
+
+* Distribuição assimétrica positiva com cauda à direita. Apesar de apresentar valores atípicos, a cauda à direita é leve com poucos clientes que compraram mais que 50 produtos no Mês. Pico entre 5 e 10 compras com redução gradual.
+
+* O boxplot indicou que a mediana não está centralizada entre o 1º e 3º quartis indicando calda suave mas longa. Centenas de clientes apresentaram  mais do que 50 compras no mês.
+
+
+### Número de Dias Após Compra Anterior
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
+
+# Center and dispersion statistics from orders
+s4 <- summary(orders$days_since_prior_order)
+df4 <- tibble(`Estatística` = c("Mínimo","1º Quartil","Mediana","Média",
+                        "3º Quartil","Máximo", "Nas", "Desvio Padrão"),
+               Valor = round(c(s4, sd(orders$days_since_prior_order, na.rm = T)),2))
+
+# Print table
+kable(df4)
+
+```
+
+* A amplitude do número de dias após compra anterior possúi mínimo de 0 e máximo de 30 dias indicando clientes que compram diariamente e mensalmente.A média e a mediana apresentaram valores próximos mas o desvio padrão de 9 indicou esplamento no padrão de recompra. Entre as 3 milhões de ordens 206.209 foram compras de novos clientes portanto apresentaram dado faltante.
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='83%', fig.align='center'}
+
+# PLot number days since prior order
+p7 <-  ggplot(data = orders, aes(x = days_since_prior_order))+
+  geom_histogram(color = "darkgreen", fill = "orange")+
+  labs(title = "Histograma do Número de dias Após Compra Anterior",
+       x = "Número de Dias",
+       y = "Frequência")
+
+# PLot number days since prior order
+p8 <- ggplot(data = orders, aes(x = days_since_prior_order))+
+  geom_boxplot(color = "darkgreen", fill = "orange")+
+  labs(title = "Boxplot do Número de dias Após Compra Anterior",
+       x = "Número de Dias",
+       y = "")
+
+# Draw plots
+grid.arrange(p7, p8, nrow = 2)
+
+```
+
+* Distribuição assimétrica positiva com cauda pesada à direita. Concentração de 1 a 15 dias para próxima compra indicando predominio de clientes semanais, porém com massa consideravel de clientes mensais.
+
+* Distribuição sem valores atípicos com mediana à esquerda do centro de massa da caixa de quartis devido a calda pesada que ilustra a grande quantidade de cliente mensais.
+
+
+### Padrão de Compras por Hora e Dia da Semana
+
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE, out.width='83%', fig.align='center'}
+
+# Group orders by time and dow
+orders_times_dow <- orders %>% 
+                  group_by(order_dow, order_hour_of_day) %>% 
+                  summarise(n_orders = n()) %>% 
+                  mutate(order_dow = factor(order_dow, levels=0:6,
+                                            labels=c("Domingo", "Segunda", "Terça", "Quarta",
+                                                     "Quinta", "Sexta", "Sábado")))
+
+# Draw a 2d plot of count by order of day an day of week
+ggplot(data = orders_times_dow, aes(x = order_hour_of_day, 
+                                y = n_orders,
+                                group = order_dow,
+                                color = order_dow))+
+  geom_line(size = 1.05)+
+  labs(title = "Número de Ordens por Dia da Semana e Hora do Dia",
+       x = "Hora do Dia",
+       y = "Número de Ordens",
+       color = "Dia da Semana")
+
+```
+
+
+* Os dias da semana com maior número de vendas foram Domingo com pico na manhã entre 9 e meio dia e Segunda com pico a tarde entre 12 e 16 horas. Para os outros dias o número de vendas atinge plato entre 30.000 e 40.000 ordens entre 9 e 16 horas.
 
 # 3 Preparação dos Dados
 
@@ -380,21 +481,18 @@ kable(order_products_train5)
 
 ```
 
-* Apenas os 2 primeiros atributos desta tabela foram utilizados.
 
 ### Amostra do Arquivo products.csv
 
 ```{r, echo = FALSE, warning=FALSE, message=FALSE, error=FALSE}
 
 # Define data frame head of order_products_train.csv
-products5 <- products[11:16,]
+products5 <- products[11:17,]
 
 # Print table
 kable(products5)
 
 ```
-
-* Apenas os dois primeiros atributos desta tabela foram utilizados. 
 
 ## 3.2 Limpeza dos Dados
 
@@ -414,7 +512,7 @@ train_names <- train %>%
   select(order_id, product_name)
 
 # Print table
-kable(train_names[11:16,])
+kable(train_names[11:17,])
 
 ```
 
@@ -534,6 +632,18 @@ O modelo 2 poderia ser utilizado pela equipe de marketing direcionado para suger
 
 O modelo 3 com mais de 100 regras poderia ser utilizado pela equipe de desenvolvimento do comércio eletrônico com objetivo de ordenar a sugestão de itens para serem acrescentados no processo de compras baseado nas regras de associação. Desta forma um número maior de produtos do portfólio da empresa seria recomendado com base na inteligência artificial gerada pelas regras de associação na mineração de padrões de compras frequentes.
 
+## 6.4 Aplicativo DashBoard Instacart Shiny
+
+A análise descritiva foi transformada em um aplicativo web dashboard automatizado com o pacote Shiny que recupera as informações sobre padrões de compras mensais. Desta forma as informações poderão ser acessadas de forma rápida e intuitiva pelos departamentos de planejamento financeiro, estoque e marketing e se desejado baixadas em diversos formatos como imagem PDF e CSV. 
+
+Com essa ferramenta a equipe de inteligência de negócios poderá avaliar produtos que são carro chefe do negócio, a equipe de planejamento financeiro poderá determinar quais produtos devem ser comprados e em qual quantidade e a equipe de marketing poderá otimizar o direcionamento e conteúdo das propagandas. A ferramenta também fornece a interação com os parâmetros de suporte e confiança para gerar novos modelos. Devido ao fato da base de dados ser grande e do servidor ser gratuito talvez seja necessário recarregar a página e aguardar alguns segundos.
+
+* [\textcolor{blue}{Link do Aplicativo Web Dashboard Instacart}](https://loes.shinyapps.io/dashboard/)
+
+
+```{r, echo = FALSE, out.width = "400px", fig.align='center'}
+knitr::include_graphics("instacart_img/app_img.png")
+```
 
 # 7 - Fontes e Referências
 
@@ -555,12 +665,7 @@ O modelo 3 com mais de 100 regras poderia ser utilizado pela equipe de desenvolv
 
 * [\textcolor{blue}{DataCamp}](https://www.datacamp.com/community/tutorials/market-basket-analysis-r)
 
-* [\textcolor{blue}{Learn by Merketing}](https://www.learnbymarketing.com/1043/working-with-arules-transactions-and-read-transactions/)
+* [\textcolor{blue}{Learn by Marketing}](https://www.learnbymarketing.com/1043/working-with-arules-transactions-and-read-transactions/)
 
-
-
-
-
-
-
+* [\textcolor{blue}{Github do Projeto}](https://github.com/Protospi/INSTACART)
 
